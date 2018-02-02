@@ -1,0 +1,68 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+use YAML::Tiny;
+# get command line arguements
+my $configfile = $ARGV[0];
+my $domain = $ARGV[1];
+my $nameserver = $ARGV[2];
+
+#presumably you want to delete the changes file, and create a new one 
+#each time the script runs.  Instructions are not clear on this
+unlink 'changes.yaml';
+
+# Open the config
+my $stuff = YAML::Tiny->read( $configfile );
+
+foreach my $key (keys %{ $stuff->[0] }) {
+my $type = $stuff->[0]->{$key}{type};
+my $value = $stuff->[0]->{$key}{value};
+my $domain = "dns-exercise.dev";
+my $lookup_record = join ".", $key, $domain;
+my $short_hostname = $key;
+do_dns_lookup($lookup_record,$type,$short_hostname,$value);
+}
+
+
+
+
+sub do_dns_lookup {
+    my($lookup_record, $type, $short_hostname,$value) = @_;
+    # this is unfortunate  Net::DNS::Resolver is buggy 
+    # and does not handle TXT or SPF records
+    # so we are forced to shell out and run `host`
+    my $dnsoutput =    `host -t $type $lookup_record $nameserver|grep $lookup_record`;
+    my @dnsoutputarray = split / /, $dnsoutput;
+    if ($dnsoutputarray[2] =~ /SPF/) {
+	my ($split1,$split2)=split(/"/,$dnsoutput);
+	my $address = $split2;
+	print "\n";
+    }elsif ($dnsoutputarray[2] =~ /TXT|text/) {
+	my ($temp1,$split2)=split(/"/,$dnsoutput);
+	my $address = $split2;
+	print "\n";
+    }
+    my $address = pop @dnsoutputarray;
+    if ($address =~ /record/) {
+	$address = "NULL";
+    }
+    if ($type !~ /spf|SPF|text|TXT/) {
+	print "\n";
+	chomp($value);
+	chomp($address);
+	if ($value eq $address) {
+	    print "[OK] $lookup_record records matched";
+	} else {
+	    print "[CNG] $lookup_record records did not match";
+	    open(my $fh, '>>', 'changes.yaml') or die "can't open changes.yaml";
+	    print $fh "$short_hostname:\n";
+	    print $fh "  add: $value\n";
+	    print $fh "  delete: $address\n";
+	}
+    }
+}
+
+
+
+    
