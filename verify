@@ -18,7 +18,6 @@ my $stuff = YAML::Tiny->read( $configfile );
 foreach my $key (keys %{ $stuff->[0] }) {
 my $type = $stuff->[0]->{$key}{type};
 my $value = $stuff->[0]->{$key}{value};
-my $domain = "dns-exercise.dev";
 my $lookup_record = join ".", $key, $domain;
 my $short_hostname = $key;
 do_dns_lookup($lookup_record,$type,$short_hostname,$value);
